@@ -27,32 +27,6 @@
                   (cons (cons r c) indices)
                   indices)))))))
 
-(define (list-neighbors grid row column)
-  (filter (lambda (coord) (array-in-bounds? grid (car coord) (cdr coord)))
-          (map (lambda (candidate) (cons (+ row (car candidate)) (+ column (cadr candidate))))
-               '((-1 -1) (-1 0) (-1 1) (0 -1) (0 1) (1 -1) (1 0) (1 1)))))
-
-(define (find-neighbors grid row column value)
-  (filter (lambda (neighbor-coord)
-            (= (array-ref grid (car neighbor-coord) (cdr neighbor-coord))
-               value))
-          (list-neighbors grid row column)))
-
-(define (find-candidates grid)
-  (let ((start-coords (find-value grid (char->integer #\X))))
-    (apply append
-           (map
-             (lambda (start-coord)
-               (map
-                 (lambda (next-coord)
-                   (list
-                     (car start-coord)
-                     (cdr start-coord)
-                     (- (car next-coord) (car start-coord))
-                     (- (cdr next-coord) (cdr start-coord))))
-                 (find-neighbors grid (car start-coord) (cdr start-coord) (char->integer #\M))))
-             start-coords))))
-
 (define (valid-word? grid word r-coord c-coord r-dir c-dir)
   (let loop ((r r-coord) (c c-coord) (i 0))
     (if (= i (string-length word))
@@ -64,9 +38,14 @@
 
 (define (part-1 input-data)
   (let ((grid (parse-input input-data)))
-    (length (filter
-              (lambda (candidate) (apply valid-word? grid "XMAS" candidate))
-              (find-candidates grid)))))
+    (length
+      (apply append
+             (map
+               (lambda (start)
+                 (filter (lambda (dir)
+                           (valid-word? grid "XMAS" (car start) (cdr start) (car dir) (cdr dir)))
+                         '((-1 . -1) (-1 . 0) (-1 . 1) (0 . -1) (0 . 1) (1 . -1) (1 . 0) (1 . 1))))
+               (find-value grid (char->integer #\X)))))))
 
 (display (part-1 input-data))
 (newline)
