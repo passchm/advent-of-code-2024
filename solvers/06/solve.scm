@@ -128,11 +128,14 @@
 
 (define (find-obstruction-loops grid starting-position starting-direction)
   (let ((starting-ray (gray (car starting-position) (cdr starting-position)
-                            (car starting-direction) (cdr starting-direction))))
+                            (car starting-direction) (cdr starting-direction)))
+        (visited-positions (move-guard grid starting-position starting-direction)))
     (find-in-grid
       grid
       (lambda (r c value)
-        (if (or (= value obstruction) (equal? (cons r c) starting-position))
+        (if (or (= value obstruction)
+                (equal? (cons r c) starting-position)
+                (not (array-ref visited-positions r c)))
           #f
           (begin
             (array-set! grid obstruction r c)
