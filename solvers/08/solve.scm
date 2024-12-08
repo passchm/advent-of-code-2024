@@ -71,8 +71,44 @@
 
 ; Part 2
 
+(define (diagonal-length-of-grid grid)
+  (let ((rows (car (array-dimensions grid)))
+        (columns (cadr (array-dimensions grid))))
+    (sqrt (+ (* rows rows) (* columns columns)))))
+
+(define (calculate-extended-antinodes grid antenna-1 antenna-2)
+  (let ((diagonal-length (+ (inexact->exact (floor (diagonal-length-of-grid grid))) 1))
+        (delta-r (- (car antenna-2) (car antenna-1)))
+        (delta-c (- (cdr antenna-2) (cdr antenna-1))))
+    (filter (lambda (pos) (position-in-grid? grid (car pos) (cdr pos)))
+            (apply append
+                   (map (lambda (i)
+                          (list
+                            (cons (- (car antenna-1) (* delta-r i)) (- (cdr antenna-1) (* delta-c i)))
+                            (cons (+ (car antenna-2) (* delta-r i)) (+ (cdr antenna-2) (* delta-c i)))))
+                        (iota diagonal-length))))))
+
+(define (find-extended-antinodes grid frequency)
+  (let ((antennas (find-in-grid grid (lambda (c) (= c frequency)))))
+    (apply append
+           (map
+             (lambda (antenna-1)
+               (apply append
+                      (map (lambda (antenna-2)
+                             (if (equal? antenna-1 antenna-2)
+                               '()
+                               (calculate-extended-antinodes grid antenna-1 antenna-2)))
+                           antennas)))
+             antennas))))
+
 (define (part-2 input-data)
-  '())
+  (let* ((grid (parse-input input-data))
+         (frequencies (find-frequencies grid)))
+    (length
+      (filter (lambda (pos) (position-in-grid? grid (car pos) (cdr pos)))
+              (delete-duplicates
+                (apply append
+                       (map (lambda (frequency) (find-extended-antinodes grid frequency)) frequencies)))))))
 
 (display (part-2 input-data))
 (newline)
