@@ -62,7 +62,12 @@
 ; Part 2
 
 (define (part-2 input-data)
-  '())
+  (let ((grid (parse-input input-data)))
+    (apply +
+           (map length
+                (map (lambda (start-point)
+                       (move-higher grid 0 (car start-point) (cdr start-point)))
+                     (find-in-grid grid (lambda (n) (= n 0))))))))
 
 (display (part-2 input-data))
 (newline)
