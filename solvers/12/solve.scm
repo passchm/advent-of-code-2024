@@ -1,4 +1,5 @@
 (use-modules ((ice-9 textual-ports) #:select (get-string-all)))
+(use-modules ((srfi srfi-9 gnu) #:select (define-immutable-record-type)))
 
 (define input-data
   (call-with-input-file "input.txt" get-string-all))
@@ -37,13 +38,15 @@
 
 (define (find-regions grid)
   (let ((seen (apply make-array #f (array-shape grid)))
-        (num-rows (car (array-dimensions grid)))
-        (num-columns (cadr (array-dimensions grid))))
-    (let loop ((r 0) (c 0) (regions '()))
-      (if (>= r num-rows)
+        (min-row (car (car (array-shape grid))))
+        (max-row (cadr (car (array-shape grid))))
+        (min-column (car (cadr (array-shape grid))))
+        (max-column (cadr (cadr (array-shape grid)))))
+    (let loop ((r min-row) (c min-column) (regions '()))
+      (if (> r max-row)
         (reverse (filter pair? regions))
-        (if (>= c num-columns)
-          (loop (+ r 1) 0 regions)
+        (if (> c max-column)
+          (loop (+ r 1) min-column regions)
           (loop r (+ c 1)
                 (cons
                   (find-and-mark-region! grid seen (array-ref grid r c) r c)
@@ -82,8 +85,78 @@
 
 ; Part 2
 
+(define-immutable-record-type
+  <gray>
+  (gray r c dr dc)
+  gray?
+  (r gray-r set-gray-r)
+  (c gray-c set-gray-c)
+  (dr gray-dr set-gray-dr)
+  (dc gray-dc set-gray-dc))
+
+(define (rays-for-garden-plot region garden-plot)
+  ;      2
+  ; 3<---^
+  ;  | 0 |
+  ;  v--->1
+  ;  4
+  (let ((r (car garden-plot)) (c (cdr garden-plot)))
+    (append
+      ; 1
+      (if (not (member (cons (+ r 1) c) region))
+        (list (gray r c 0 1))
+        '())
+      ; 2
+      (if (not (member (cons r (+ c 1)) region))
+        (list (gray r c -1 0))
+        '())
+      ; 3
+      (if (not (member (cons (- r 1) c) region))
+        (list (gray r c 0 -1))
+        '())
+      ; 4
+      (if (not (member (cons r (- c 1)) region))
+        (list (gray r c 1 0))
+        '()))))
+
+(define (gray-pos ray)
+  (cons (gray-r ray) (gray-c ray)))
+
+(define (group-by-dir rays)
+  (map (lambda (dir)
+         (map gray-pos
+              (filter (lambda (ray)
+                        (and (= (gray-dr ray) (car dir)) (= (gray-dc ray) (cdr dir))))
+                      rays)))
+       '((0 . 1) (-1 . 0) (0 . -1) (1 . 0))))
+
+(define (group-neighbors positions)
+  (let* ((min-row (apply min (map car positions)))
+         (max-row (apply max (map car positions)))
+         (min-column (apply min (map cdr positions)))
+         (max-column (apply max (map cdr positions)))
+         (simple-grid (make-array #f (list min-row (+ max-row 1)) (list min-column (+ max-column 1)))))
+    (for-each (lambda (pos) (array-set! simple-grid #t (car pos) (cdr pos))) positions)
+    (filter (lambda (region)
+              (array-ref simple-grid (caar region) (cdar region)))
+            (find-regions simple-grid))))
+
+(define (calculate-number-of-sides region)
+  (apply +
+         (map (compose length group-neighbors)
+              (group-by-dir
+                (apply append
+                       (map (lambda (garden-plot)
+                              (rays-for-garden-plot region garden-plot))
+                            region))))))
+
 (define (part-2 input-data)
-  '())
+  (let ((grid (parse-input input-data)))
+    (apply +
+           (map (lambda (region)
+                  (* (length region)
+                     (calculate-number-of-sides region)))
+                (find-regions grid)))))
 
 (display (part-2 input-data))
 (newline)
