@@ -47,8 +47,8 @@
   (ay machine-ay)
   (bx machine-bx)
   (by machine-by)
-  (px machine-px)
-  (py machine-py))
+  (px machine-px set-machine-px)
+  (py machine-py set-machine-py))
 
 (define (machine-config->machine machine-config)
   (match machine-config
@@ -111,8 +111,50 @@
 
 ; Part 2
 
+(define (move-prize machine)
+  (set-machine-py
+    (set-machine-px machine
+                    (+ (machine-px machine) 10000000000000))
+    (+ (machine-py machine) 10000000000000)))
+
+; As was derived in the previous part, there is either no path
+; or a single combination of A and B button presses that reach the price.
+;
+; For a path that reaches the price, the following two linear equations must hold:
+;
+; x_A * n_A + x_B * n_B = x_p
+; y_A * n_A + y_B * n_B = y_p
+;
+; This can be written in matrix form, where the unknowns are n_A and n_B.
+; Because n_A and n_B must be integers, not all solutions are valid paths.
+
+(define (find-path-smart machine)
+  ; In this procedure, the formula for the inverse of a 2-by-2 matrix is used.
+  ; Because x_A, y_A, x_B, and y_B are all integers, the determinant is an integer.
+  (let* ((x_A (machine-ax machine))
+         (y_A (machine-ay machine))
+         (x_B (machine-bx machine))
+         (y_B (machine-by machine))
+         (x_p (machine-px machine))
+         (y_p (machine-py machine))
+         (det (- (* x_A y_B) (* y_A x_B)))
+         (n_A_times_det (+ (* y_B x_p) (* (- x_B) y_p)))
+         (n_B_times_det (+ (* (- y_A) x_p) (* x_A y_p))))
+    ; Check that the matrix is invertible.
+    (if (= det 0)
+      #f
+      ; Check that n_A and n_B are integers.
+      (if (and (= (euclidean-remainder n_A_times_det det) 0)
+               (= (euclidean-remainder n_B_times_det det) 0))
+        (cons (/ n_A_times_det det) (/ n_B_times_det det))
+        #f))))
+
 (define (part-2 input-data)
-  '())
+  (apply +
+         (map (lambda (path) (+ (* 3 (car path)) (cdr path)))
+              (filter identity
+                      (map find-path-smart
+                           (map move-prize (parse-input input-data)))))))
 
 (display (part-2 input-data))
 (newline)
