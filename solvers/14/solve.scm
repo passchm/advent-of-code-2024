@@ -50,10 +50,10 @@
 (define grid-width 101)
 (define grid-height 103)
 
-(define (move-robot bot duration)
+(define (move-robot bot time-step)
   (robot
-    (euclidean-remainder (+ (robot-px bot) (* (robot-vx bot) duration)) grid-width)
-    (euclidean-remainder (+ (robot-py bot) (* (robot-vy bot) duration)) grid-height)
+    (euclidean-remainder (+ (robot-px bot) (* (robot-vx bot) time-step)) grid-width)
+    (euclidean-remainder (+ (robot-py bot) (* (robot-vy bot) time-step)) grid-height)
     (robot-vx bot)
     (robot-vy bot)))
 
@@ -90,8 +90,80 @@
 
 ; Part 2
 
+(define (draw-ascii-pbm-image port grid)
+  (let ((image-height (car (array-dimensions grid)))
+        (image-width (cadr (array-dimensions grid))))
+    (display "P1\n" port)
+    (display image-width port)
+    (display " " port)
+    (display image-height port)
+    (display "\n" port)
+    (for-each
+      (lambda (y)
+        (for-each
+          (lambda (x)
+            (if (>= (array-ref grid y x) 1)
+              (display 1 port)
+              (display 0 port)))
+          (iota image-width))
+        (display "\n" port))
+      (iota image-height))))
+
+(define (draw-situation bots)
+  (let ((grid (make-typed-array 'u8 0 grid-height grid-width)))
+    (for-each
+      (lambda (bot)
+        (array-set! grid
+                    (+ (array-ref grid (robot-py bot) (robot-px bot)) 1)
+                    (robot-py bot)
+                    (robot-px bot)))
+      bots)
+    grid))
+
+(define (draw-situation-image! bots time-step)
+  (call-with-output-file
+    (format #f "image_~d.pbm" time-step)
+    (lambda (port)
+      (draw-ascii-pbm-image
+        port
+        (draw-situation
+          (map (lambda (bot) (move-robot bot time-step))
+               bots))))))
+
+(define (count-downstairs-neighbors bots)
+  (let ((positions (make-hash-table (length bots))))
+    (for-each (lambda (bot)
+                (hash-set! positions (cons (robot-px bot) (robot-py bot)) #t))
+              bots)
+    (length
+      (filter
+        (lambda (bot) (hash-ref positions (cons (robot-px bot) (+ (robot-py bot) 1)) #f))
+        bots))))
+
+(define (first-index-of-value value vec)
+  (let loop ((i 0))
+    (if (< i (vector-length vec))
+      (if (equal? (vector-ref vec i) value)
+        i
+        (loop (+ i 1)))
+      #f)))
+
+; A tree always has a trunk.
+
 (define (part-2 input-data)
-  '())
+  (let* ((bots (parse-input input-data))
+         (downstairs-neighbors
+           (map (lambda (time-step)
+                  (count-downstairs-neighbors
+                    (map (lambda (bot) (move-robot bot time-step)) bots)))
+                (iota 100000)))
+         (christmas-tree-time-step
+           (first-index-of-value
+             (apply max downstairs-neighbors)
+             (list->vector downstairs-neighbors))))
+    (when #f
+      (draw-situation-image! bots christmas-tree-time-step))
+    christmas-tree-time-step))
 
 (display (part-2 input-data))
 (newline)
