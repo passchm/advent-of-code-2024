@@ -31,7 +31,7 @@
     (case opcode
       ; adv
       ((0)
-       (set! reg-a (truncate-quotient reg-a (expt 2 combo)))
+       (set! reg-a (ash reg-a (- combo)))
        (set! ip (+ ip 2)))
       ; bxl
       ((1)
@@ -39,7 +39,7 @@
        (set! ip (+ ip 2)))
       ; bst
       ((2)
-       (set! reg-b (euclidean-remainder combo 8))
+       (set! reg-b (logand combo #b111))
        (set! ip (+ ip 2)))
       ; jnz
       ((3)
@@ -50,15 +50,15 @@
        (set! ip (+ ip 2)))
       ; out
       ((5)
-       (set! output (euclidean-remainder combo 8))
+       (set! output (logand combo #b111))
        (set! ip (+ ip 2)))
       ; bdv
       ((6)
-       (set! reg-b (truncate-quotient reg-a (expt 2 combo)))
+       (set! reg-b (ash reg-a (- combo)))
        (set! ip (+ ip 2)))
       ; cdv
       ((7)
-       (set! reg-c (truncate-quotient reg-a (expt 2 combo)))
+       (set! reg-c (ash reg-a (- combo)))
        (set! ip (+ ip 2)))
       (else
         (error "Bad opcode")))
