@@ -2,7 +2,7 @@
 (use-modules ((srfi srfi-9 gnu) #:select (define-immutable-record-type)))
 
 (add-to-load-path (dirname (current-filename)))
-(use-modules ((dijkstra) #:select (dijkstra-find-path)))
+(use-modules ((dijkstra) #:select (dijkstra-find-best-paths)))
 
 (define input-data
   (call-with-input-file "input.txt" get-string-all))
@@ -82,10 +82,11 @@
   (let* ((candidate-paths
            (map-in-order
              (lambda (end-tile-dir)
-               (dijkstra-find-path
-                 (gray (car start-tile) (cdr start-tile) 0 1)
-                 (gray (car end-tile) (cdr end-tile) (car end-tile-dir) (cdr end-tile-dir))
-                 (lambda (current-ray) (possible-moves grid current-ray))))
+               (car
+                 (dijkstra-find-best-paths
+                   (gray (car start-tile) (cdr start-tile) 0 1)
+                   (gray (car end-tile) (cdr end-tile) (car end-tile-dir) (cdr end-tile-dir))
+                   (lambda (current-ray) (possible-moves grid current-ray)))))
              '((-1 . 0) (1 . 0) (0 . -1) (0 . 1))))
          (scores
            (map-in-order score-path candidate-paths))
@@ -120,8 +121,36 @@
 
 ; Part 2
 
+(define (find-all-best-paths grid start-tile end-tile)
+  (let* ((candidate-paths
+           (apply append
+                  (map-in-order
+                    (lambda (end-tile-dir)
+                      (dijkstra-find-best-paths
+                        (gray (car start-tile) (cdr start-tile) 0 1)
+                        (gray (car end-tile) (cdr end-tile) (car end-tile-dir) (cdr end-tile-dir))
+                        (lambda (current-ray) (possible-moves grid current-ray))))
+                    '((-1 . 0) (1 . 0) (0 . -1) (0 . 1)))))
+         (scores
+           (map-in-order score-path candidate-paths))
+         (min-score (apply min scores)))
+    (filter (lambda (path) (= (score-path path) min-score))
+            candidate-paths)))
+
 (define (part-2 input-data)
-  '())
+  (let* ((grid (parse-input input-data))
+         (start-tile (car (find-in-grid grid (lambda (c) (eqv? c #\S)))))
+         (end-tile (car (find-in-grid grid (lambda (c) (eqv? c #\E))))))
+    (array-set! grid #\. (car start-tile) (cdr start-tile))
+    (array-set! grid #\. (car end-tile) (cdr end-tile))
+    (let ((best-paths (find-all-best-paths grid start-tile end-tile)))
+      (for-each
+        (lambda (path)
+          (for-each
+            (lambda (step) (array-set! grid #\O (gray-r step) (gray-c step)))
+            path))
+        best-paths)
+      (length (find-in-grid grid (lambda (c) (eqv? c #\O)))))))
 
 (display (part-2 input-data))
 (newline)

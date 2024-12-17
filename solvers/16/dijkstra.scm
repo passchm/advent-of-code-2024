@@ -1,5 +1,5 @@
 (define-module (dijkstra)
-               #:export (dijkstra-find-path)
+               #:export (dijkstra-find-best-paths)
                #:use-module ((srfi srfi-9 gnu) #:select (define-immutable-record-type))
                #:use-module ((ice-9 receive) #:select (receive)))
 
@@ -35,11 +35,25 @@
         (if (null? edges)
           '()
           (let* ((current-edge (car edges))
-                 (alt (+ (hash-ref distances node +inf.0) (edge-weight current-edge))))
-            (when (< alt (hash-ref distances (edge-destination current-edge) +inf.0))
-              (hash-set! previous (edge-destination current-edge) node)
-              (hash-set! distances (edge-destination current-edge) alt)
-              (set! pq (pq-insert pq (edge-destination current-edge) alt)))
+                 (alt (+ (hash-ref distances node) (edge-weight current-edge))))
+            (if (or (not (hash-ref distances (edge-destination current-edge)))
+                    (< alt (hash-ref distances (edge-destination current-edge))))
+              (begin
+                ; The edge destination node has no associated distance yet,
+                ; or it can be reached more quickly via the current node.
+                (hash-set! previous (edge-destination current-edge) (list node))
+                (hash-set! distances (edge-destination current-edge) alt)
+                (set! pq (pq-insert pq (edge-destination current-edge) alt)))
+              (when (= alt (hash-ref distances (edge-destination current-edge)))
+                ; The edge destination node can be reached via the current node
+                ; at the same distance as is associated currently.
+                ; This means that there is more than one path to reach the edge
+                ; destination node with the same distance from the start node.
+                (when (not (hash-ref previous (edge-destination current-edge)))
+                  (error "Edge destination node is unknown but it has an associated distance"))
+                (hash-set! previous
+                           (edge-destination current-edge)
+                           (cons node (hash-ref previous (edge-destination current-edge) '())))))
             (loop (cdr edges))))))
 
     (while (not (null? pq))
@@ -47,15 +61,27 @@
              (set! pq (cdr pq))
              (explore-node! best-node)))
 
-    (values distances previous)))
+    (values previous distances)))
 
-(define (dijkstra-find-path start-node end-node discover-edges)
-  (receive (distances previous)
+(define (track-best-paths current-node start-node previous)
+  ; Returns a list of the best paths from the current node to the start node.
+  (if (equal? current-node start-node)
+    (list (list current-node))
+    (let ((previous-nodes (hash-ref previous current-node)))
+      (if (not previous-nodes)
+        '()
+        (apply
+          append
+          (map-in-order
+            (lambda (previous-node)
+              (map-in-order
+                (lambda (previous-path) (cons current-node previous-path))
+                (track-best-paths previous-node start-node previous)))
+            previous-nodes))))))
+
+(define (dijkstra-find-best-paths start-node end-node discover-edges)
+  (receive (previous distances)
            (dijkstra start-node discover-edges)
-           (let loop ((current-node end-node) (path (list end-node)))
-             (if (equal? current-node start-node)
-               path
-               (let ((previous-node (hash-ref previous current-node #f)))
-                 (if (not previous-node)
-                   '()
-                   (loop previous-node (cons previous-node path))))))))
+           (values
+             (track-best-paths end-node start-node previous)
+             distances)))
