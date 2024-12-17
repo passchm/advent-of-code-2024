@@ -27,7 +27,7 @@
 (define (eval-instruction ip opcode operand reg-a reg-b reg-c)
   (let ((combo
           (case operand ((0) 0) ((1) 1) ((2) 2) ((3) 3) ((4) reg-a) ((5) reg-b) ((6) reg-c) (else #f)))
-        (outputs '()))
+        (output #f))
     (case opcode
       ; adv
       ((0)
@@ -50,7 +50,7 @@
        (set! ip (+ ip 2)))
       ; out
       ((5)
-       (set! outputs (cons (euclidean-remainder combo 8) outputs))
+       (set! output (euclidean-remainder combo 8))
        (set! ip (+ ip 2)))
       ; bdv
       ((6)
@@ -62,7 +62,7 @@
        (set! ip (+ ip 2)))
       (else
         (error "Bad opcode")))
-    (values ip reg-a reg-b reg-c outputs)))
+    (values ip reg-a reg-b reg-c output)))
 
 (define (run-program registers program)
   (let next ((ip 0)
@@ -73,10 +73,11 @@
     (if (< ip (vector-length program))
       (let ((opcode (vector-ref program ip))
             (operand (vector-ref program (+ ip 1))))
-        (receive (new-ip new-reg-a new-reg-b new-reg-c new-outputs)
+        (receive (new-ip new-reg-a new-reg-b new-reg-c new-output)
                  (eval-instruction ip opcode operand reg-a reg-b reg-c)
-                 (next new-ip new-reg-a new-reg-b new-reg-c (append outputs new-outputs))))
-      outputs)))
+                 (next new-ip new-reg-a new-reg-b new-reg-c
+                       (if new-output (cons new-output outputs) outputs))))
+      (reverse outputs))))
 
 (define (part-1 input-data)
   (receive (registers program)
@@ -91,8 +92,36 @@
 
 ; Part 2
 
+(define (run-until-output program ip reg-a reg-b reg-c)
+  (let next ((ip ip) (reg-a reg-a) (reg-b reg-b) (reg-c reg-c))
+    (if (< ip (vector-length program))
+      (let ((opcode (vector-ref program ip))
+            (operand (vector-ref program (+ ip 1))))
+        (receive (new-ip new-reg-a new-reg-b new-reg-c new-output)
+                 (eval-instruction ip opcode operand reg-a reg-b reg-c)
+                 (if new-output
+                   (values new-ip new-reg-a new-reg-b new-reg-c new-output)
+                   (next new-ip new-reg-a new-reg-b new-reg-c))))
+      (values ip reg-a reg-b reg-c #f))))
+
+(define (outputs-itself? program reg-a-init reg-b-init reg-c-init)
+  (let loop ((output-index 0) (ip 0) (reg-a reg-a-init) (reg-b reg-b-init) (reg-c reg-c-init))
+    (if (< output-index (vector-length program))
+      (receive (new-ip new-reg-a new-reg-b new-reg-c output)
+               (run-until-output program ip reg-a reg-b reg-c)
+               (if (and output (= output (vector-ref program output-index)))
+                 (loop (1+ output-index) new-ip new-reg-a new-reg-b new-reg-c)
+                 #f))
+      #t)))
+
 (define (part-2 input-data)
-  '())
+  (receive (registers program)
+           (parse-input input-data)
+           (let ((reg-b (list-ref registers 1)) (reg-c (list-ref registers 2)))
+             (let loop ((reg-a 0))
+               (if (outputs-itself? program reg-a reg-b reg-c)
+                 reg-a
+                 (loop (1+ reg-a)))))))
 
 (display (part-2 input-data))
 (newline)
