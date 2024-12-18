@@ -66,7 +66,23 @@
 ; Part 2
 
 (define (part-2 input-data)
-  '())
+  (let* ((corrupted-bytes (parse-input input-data))
+         (corrupted-grid
+           (build-corrupted-grid
+             (list-head corrupted-bytes 1024)))
+         (start-coord '(0 . 0))
+         (end-coord (cons (1- grid-size) (1- grid-size))))
+    (let loop ((corrupted-bytes (list-tail corrupted-bytes 1024)))
+      (if (null? corrupted-bytes)
+        #f
+        (begin
+          (array-set! corrupted-grid #t (cdr (car corrupted-bytes)) (car (car corrupted-bytes)))
+          (if (not (dijkstra-find-length-of-best-paths
+                     start-coord
+                     end-coord
+                     (lambda (coord) (possible-moves corrupted-grid coord))))
+            (format #f "~a,~a" (caar corrupted-bytes) (cdar corrupted-bytes))
+            (loop (cdr corrupted-bytes))))))))
 
 (display (part-2 input-data))
 (newline)
