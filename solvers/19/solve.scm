@@ -39,8 +39,33 @@
 
 ; Part 2
 
+(define (count-possible-arrangements desired-design towel-patterns cache)
+  (let ((cached-value (hash-ref cache desired-design)))
+    (if cached-value
+      cached-value
+      (hash-set!
+        cache
+        desired-design
+        (if (string=? desired-design "")
+          1
+          (apply +
+                 (map (lambda (pattern)
+                        (if (string-prefix? pattern desired-design)
+                          (count-possible-arrangements
+                            (substring/read-only desired-design (string-length pattern))
+                            towel-patterns
+                            cache)
+                          0))
+                      towel-patterns)))))))
+
 (define (part-2 input-data)
-  '())
+  (receive (towel-patterns desired-designs)
+           (parse-input input-data)
+           (let ((cache (make-hash-table)))
+             (apply +
+                    (map (lambda (design)
+                           (count-possible-arrangements design towel-patterns cache))
+                         desired-designs)))))
 
 (display (part-2 input-data))
 (newline)
