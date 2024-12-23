@@ -68,8 +68,50 @@
 
 ; Part 2
 
+(define (max-occurrences lst)
+  (let ((counters (make-hash-table)))
+    (for-each
+      (lambda (element)
+        (hash-set! counters element (1+ (hash-ref counters element 0))))
+      lst)
+    (let ((max-count
+            (apply max (hash-map->list (lambda (key value) value) counters))))
+      (cons max-count
+            (filter (lambda (element) (= (hash-ref counters element 0) max-count))
+                    (hash-map->list (lambda (key value) key) counters))))))
+
+(define (find-small-groups computer connections-map)
+  (let ((direct-conns (hash-ref connections-map computer '())))
+    (filter (lambda (conns) (> (length conns) 1))
+            (map (lambda (direct-computer)
+                   (sort-list
+                     (cons computer
+                           (cons
+                             direct-computer
+                             (lset-intersection
+                               string=?
+                               direct-conns
+                               (hash-ref connections-map direct-computer '()))))
+                     string<?))
+                 direct-conns))))
+
+; https://en.wikipedia.org/wiki/Clique_(graph_theory)
+
 (define (part-2 input-data)
-  '())
+  (let* ((connections-map (build-connections-map (parse-input input-data)))
+         (computers (sort-list
+                      (hash-map->list (lambda (key value) key) connections-map)
+                      string<?)))
+    (string-join
+      (sort-list
+        (cadr
+          (max-occurrences
+            (apply append
+                   (map (lambda (computer)
+                          (find-small-groups computer connections-map))
+                        computers))))
+        string<?)
+      ",")))
 
 (display (part-2 input-data))
 (newline)
