@@ -83,5 +83,5 @@
   (receive (previous distances)
            (dijkstra start-node discover-edges)
            (values
-             (track-best-paths end-node start-node previous)
+             (map reverse (track-best-paths end-node start-node previous))
              distances)))
