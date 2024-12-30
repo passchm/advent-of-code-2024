@@ -4,6 +4,7 @@
 
 (add-to-load-path (dirname (current-filename)))
 (use-modules ((dijkstra) #:select (dijkstra-find-best-paths)))
+(use-modules ((memoization) #:select (define-memoized)))
 
 (define input-data
   (call-with-input-file "input.txt" get-string-all))
@@ -22,9 +23,6 @@
 ; To press any button on KP1, the A button must be pressed on each of the other keypads.
 ; Which means that OP2, OP3, and OP4 return to their initial state.
 ; This also implies that each code (line of the input) is independent of the others.
-;
-; Unfortunately, the shortest paths between two numbers on KP1 may not result in the
-; smallest number of key presses by OP4. Is this really true?
 
 (define numeric-keypad-grid
   (list->array 2 '((#\7 #\8 #\9)
@@ -147,8 +145,67 @@
 
 ; Part 2
 
+(define (first-robot-sequences code)
+  (map list->string
+       (propagate-sequences
+         numeric-keypad-grid
+         (list (string->list code)))))
+
+(define directional-keypad-paths
+  (let ((buttons '(#\A #\^ #\v #\< #\>))
+        (paths (make-hash-table)))
+    (for-each
+      (lambda (button-a)
+        (for-each
+          (lambda (button-b)
+            (hash-set! paths
+                       (cons button-a button-b)
+                       (keypad-moves
+                         directional-keypad-grid
+                         button-a
+                         button-b)))
+          buttons))
+      buttons)
+    paths))
+
+(define-memoized
+  (compute-sequence-lengths sequence robot-number)
+  (if (= robot-number 2)
+    (apply +
+           (map (lambda (move)
+                  ; 1+ because the A button needs to be pressed at the end of every move
+                  (1+
+                   (length
+                     ; All shortest paths have the same length, so pick the first one
+                     (car
+                       (hash-ref directional-keypad-paths
+                                 (cons (car move) (cadr move)))))))
+                (zip (cons #\A sequence) sequence)))
+    (apply +
+           (map (lambda (move)
+                  (apply min
+                         (map (lambda (propagated-move)
+                                (compute-sequence-lengths
+                                  (append propagated-move '(#\A))
+                                  (1- robot-number)))
+                              (hash-ref directional-keypad-paths
+                                        (cons (car move) (cadr move))))))
+                (zip (cons #\A sequence) sequence)))))
+
 (define (part-2 input-data)
-  '())
+  (apply +
+         (map (lambda (code)
+                (let ((lengths
+                        (map (lambda (sequence)
+                               (compute-sequence-lengths
+                                 (string->list sequence)
+                                 ; Put 3 here instead of 26 for part 1
+                                 26))
+                             (first-robot-sequences code))))
+                  (*
+                    (apply min lengths)
+                    (string->number (string-drop-right code 1)))))
+              (parse-input input-data))))
 
 (display (part-2 input-data))
 (newline)
